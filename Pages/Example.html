@@ -2,110 +2,130 @@
 <html lang="fa">
 <head>
 <meta charset="UTF-8" />
-<title>اسکنر کیو آر کد ساده</title>
-<script defer src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+<title>اسکن کیوآر و نمایش اطلاعات بر اساس ترتیب JSON</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
-  body {
-    font-family: sans-serif; 
-    text-align: center; 
-    direction: rtl; 
-    margin: 20px;
-  }
-  #reader {
+  video {
     width: 320px;
-    margin: 20px auto;
-    border: 3px solid #0078d7;
-    border-radius: 12px;
-    position: relative;
-  }
-  #result {
-    max-width: 320px;
-    margin: 15px auto;
-    background: #f9f9f9;
+    height: 240px;
+    border: 2px solid #333;
     border-radius: 8px;
+    display: block;
+    margin: 20px auto;
+  }
+  #output {
+    max-width: 320px;
+    margin: 10px auto;
     padding: 10px;
+    border: 1px solid #666;
+    border-radius: 6px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: #f0f0f0;
+    min-height: 60px;
     text-align: right;
-    min-height: 150px;
-    border: 1px solid #ddd;
+    direction: rtl;
+  }
+  ul {
+    padding-right: 15px;
+    text-align: right;
   }
 </style>
 </head>
 <body>
 
-<h2>کیو آر کد را مقابل دوربین قرار دهید</h2>
-
-<div id="reader"></div>
-<div id="result">منتظر اسکن کیو آر کد...</div>
+<h2>دوربین فعال است، کیوآر کد را مقابل دوربین قرار دهید</h2>
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" hidden></canvas>
+<div id="output">هیچ کیوآر کدی هنوز اسکن نشده</div>
 
 <script>
-window.onload = async () => {
-  const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json";
-  let users = [];
-  let html5QrCode = null;
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const output = document.getElementById('output');
+  const ctx = canvas.getContext('2d');
 
-  // لود فایل JSON
+  const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json";
+
+  let users = [];
+  let lastDecoded = null; // برای جلوگیری از نمایش تکراری
+
   async function loadUsers() {
     try {
       const res = await fetch(jsonUrl);
       if (!res.ok) throw new Error("خطا در بارگذاری JSON");
       users = await res.json();
+      // به هر آیتم یک id اختصاص می‌دهیم بر اساس اندیس + 1
+      users = users.map((item, index) => ({ id: index + 1, ...item }));
     } catch (e) {
-      document.getElementById("result").innerText = "خطا در بارگذاری داده‌ها: " + e.message;
+      output.textContent = "خطا در بارگذاری داده‌ها: " + e.message;
     }
   }
 
-  // نمایش اطلاعات کاربر
-  function displayUserInfo(decodedText) {
-    const user = users.find(u => String(u.id) === String(decodedText));
-    if (user) {
-      let html = "<h3>اطلاعات کاربر:</h3><ul>";
-      for (const [k, v] of Object.entries(user)) {
-        html += `<li><b>${k}:</b> ${v || ""}</li>`;
-      }
-      html += "</ul>";
-      document.getElementById("result").innerHTML = html;
-    } else {
-      document.getElementById("result").innerHTML = `<p>کاربر با شناسه <b>${decodedText}</b> یافت نشد.</p>`;
+  function displayUser(user) {
+    if (!user) {
+      output.textContent = "کاربر با این شناسه یافت نشد.";
+      return;
     }
+    let html = "<h3>اطلاعات کاربر:</h3><ul>";
+    for (const [key, value] of Object.entries(user)) {
+      if (key === "id") continue; // id رو نمایش نمی‌دهیم
+      html += `<li><b>${key}:</b> ${value || ""}</li>`;
+    }
+    html += "</ul>";
+    output.innerHTML = html;
   }
 
-  // شروع اسکنر با اولین دوربین موجود
-  async function startScanner() {
+  async function startCamera() {
     try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        document.getElementById("result").innerText = "هیچ دوربینی پیدا نشد.";
-        return;
-      }
-
-      html5QrCode = new Html5Qrcode("reader");
-
-      const config = {
-        fps: 10,
-        qrbox: 250,
-        aspectRatio: 1.0,
-        rememberLastUsedCamera: true
-      };
-
-      await html5QrCode.start(
-        cameras[0].id, // استفاده از اولین دوربین به صورت پیش‌فرض
-        config,
-        (decodedText, decodedResult) => {
-          displayUserInfo(decodedText);
-        },
-        (errorMessage) => {
-          // خطاهای جزئی اسکن، می‌توان نادیده گرفت یا ثبت کرد
-        }
-      );
-
-    } catch (err) {
-      document.getElementById("result").innerText = "خطا در شروع اسکنر: " + err;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true); // برای iOS
+      requestAnimationFrame(tick);
+    } catch (e) {
+      output.textContent = "خطا در دسترسی به دوربین: " + e.message;
     }
   }
 
-  await loadUsers();
-  await startScanner();
-};
+  function tick() {
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+      if (code) {
+        if (code.data !== lastDecoded) {
+          lastDecoded = code.data;
+          // فرض می‌کنیم کد QR فقط یک عدد است که نشان‌دهنده شماره کاربر است
+          const id = parseInt(code.data.trim());
+          if (!isNaN(id)) {
+            const user = users.find(u => u.id === id);
+            if (user) {
+              displayUser(user);
+            } else {
+              output.textContent = "کاربر با شناسه " + id + " یافت نشد.";
+            }
+          } else {
+            output.textContent = "کد QR اسکن شد اما عدد معتبر نبود:\n" + code.data;
+          }
+        }
+      } else {
+        if (!lastDecoded) {
+          output.textContent = "هیچ کیوآر کدی یافت نشد";
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  (async () => {
+    await loadUsers();
+    await startCamera();
+  })();
 </script>
 
 </body>
