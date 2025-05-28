@@ -1,58 +1,61 @@
 <!DOCTYPE html>
 <html lang="fa">
 <head>
-  <meta charset="UTF-8" />
-  <title>اسکن کیو آر کد و نمایش اطلاعات</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
-  <style>
-    #reader {
-      width: 320px;
-      margin: 20px auto;
-    }
-    #result {
-      margin-top: 20px;
-      text-align: right;
-      font-size: 18px;
-      direction: rtl;
-      width: 320px;
-      margin-left: auto;
-      margin-right: auto;
-      border: 1px solid #ccc;
-      padding: 15px;
-      border-radius: 8px;
-      background-color: #f9f9f9;
-      min-height: 120px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>اسکنر کیو آر کد ساده</title>
+<script defer src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+<style>
+  body {
+    font-family: sans-serif; 
+    text-align: center; 
+    direction: rtl; 
+    margin: 20px;
+  }
+  #reader {
+    width: 320px;
+    margin: 20px auto;
+    border: 3px solid #0078d7;
+    border-radius: 12px;
+    position: relative;
+  }
+  #result {
+    max-width: 320px;
+    margin: 15px auto;
+    background: #f9f9f9;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: right;
+    min-height: 150px;
+    border: 1px solid #ddd;
+  }
+</style>
 </head>
 <body>
 
-<h2 style="text-align:center;">دوربین را باز کن و کیو آر کد را اسکن کن</h2>
+<h2>کیو آر کد را مقابل دوربین قرار دهید</h2>
 
 <div id="reader"></div>
-<div id="result">در حال بارگذاری...</div>
+<div id="result">منتظر اسکن کیو آر کد...</div>
 
 <script>
-window.onload = function() {
+window.onload = async () => {
   const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json";
   let users = [];
+  let html5QrCode = null;
 
-  fetch(jsonUrl)
-    .then(res => {
+  // لود فایل JSON
+  async function loadUsers() {
+    try {
+      const res = await fetch(jsonUrl);
       if (!res.ok) throw new Error("خطا در بارگذاری JSON");
-      return res.json();
-    })
-    .then(data => {
-      users = data;
-      startScanner();
-    })
-    .catch(err => {
-      document.getElementById("result").innerText = "خطا در بارگذاری داده‌ها: " + err.message;
-    });
+      users = await res.json();
+    } catch (e) {
+      document.getElementById("result").innerText = "خطا در بارگذاری داده‌ها: " + e.message;
+    }
+  }
 
-  let html5QrcodeScanner = null;
-
-  function onScanSuccess(decodedText) {
+  // نمایش اطلاعات کاربر
+  function displayUserInfo(decodedText) {
     const user = users.find(u => String(u.id) === String(decodedText));
     if (user) {
       let html = "<h3>اطلاعات کاربر:</h3><ul>";
@@ -66,29 +69,42 @@ window.onload = function() {
     }
   }
 
-  function onScanFailure(error) {
-    // خطاهای اسکن رو می‌تونید اینجا ثبت کنید یا نادیده بگیرید
-  }
-
-  function startScanner() {
-    html5QrcodeScanner = new Html5Qrcode("reader");
-
-    Html5Qrcode.getCameras().then(cameras => {
-      if (cameras && cameras.length) {
-        const cameraId = cameras[0].id;
-        html5QrcodeScanner.start(
-          cameraId,
-          { fps: 10, qrbox: 250 },
-          onScanSuccess,
-          onScanFailure
-        );
-      } else {
-        document.getElementById("result").innerText = "دوربینی یافت نشد.";
+  // شروع اسکنر با اولین دوربین موجود
+  async function startScanner() {
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        document.getElementById("result").innerText = "هیچ دوربینی پیدا نشد.";
+        return;
       }
-    }).catch(err => {
-      document.getElementById("result").innerText = "دسترسی به دوربین امکان‌پذیر نیست.";
-    });
+
+      html5QrCode = new Html5Qrcode("reader");
+
+      const config = {
+        fps: 10,
+        qrbox: 250,
+        aspectRatio: 1.0,
+        rememberLastUsedCamera: true
+      };
+
+      await html5QrCode.start(
+        cameras[0].id, // استفاده از اولین دوربین به صورت پیش‌فرض
+        config,
+        (decodedText, decodedResult) => {
+          displayUserInfo(decodedText);
+        },
+        (errorMessage) => {
+          // خطاهای جزئی اسکن، می‌توان نادیده گرفت یا ثبت کرد
+        }
+      );
+
+    } catch (err) {
+      document.getElementById("result").innerText = "خطا در شروع اسکنر: " + err;
+    }
   }
+
+  await loadUsers();
+  await startScanner();
 };
 </script>
 
