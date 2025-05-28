@@ -2,7 +2,7 @@
 <html lang="fa">
 <head>
   <meta charset="UTF-8" />
-  <title>اسکن کیو آر و نمایش اطلاعات فرد</title>
+  <title>اسکن کیو آر کد و نمایش اطلاعات</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
   <style>
     #reader {
@@ -30,19 +30,17 @@
 <h2 style="text-align:center;">دوربین را باز کن و کیو آر کد را اسکن کن</h2>
 
 <div id="reader"></div>
-
-<div id="result">نتیجه اسکن اینجا نمایش داده می‌شود</div>
+<div id="result">در حال بارگذاری...</div>
 
 <script>
-  const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json"; // لینک فایل JSON Raw خودت رو اینجا بگذار
-
+window.onload = function() {
+  const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json";
   let users = [];
 
-  // بارگذاری داده‌ها از JSON
   fetch(jsonUrl)
-    .then(response => {
-      if (!response.ok) throw new Error("خطا در بارگذاری فایل JSON");
-      return response.json();
+    .then(res => {
+      if (!res.ok) throw new Error("خطا در بارگذاری JSON");
+      return res.json();
     })
     .then(data => {
       users = data;
@@ -52,48 +50,46 @@
       document.getElementById("result").innerText = "خطا در بارگذاری داده‌ها: " + err.message;
     });
 
-  function displayUserInfo(id) {
-    const user = users.find(u => String(u.id) === String(id));
-    const resultDiv = document.getElementById("result");
+  let html5QrcodeScanner = null;
 
-    if(user) {
-      let html = `<h3>اطلاعات کاربر:</h3><ul>`;
-      for(const [key, value] of Object.entries(user)) {
-        html += `<li><strong>${key}:</strong> ${value || ""}</li>`;
+  function onScanSuccess(decodedText) {
+    const user = users.find(u => String(u.id) === String(decodedText));
+    if (user) {
+      let html = "<h3>اطلاعات کاربر:</h3><ul>";
+      for (const [k, v] of Object.entries(user)) {
+        html += `<li><b>${k}:</b> ${v || ""}</li>`;
       }
-      html += `</ul>`;
-      resultDiv.innerHTML = html;
+      html += "</ul>";
+      document.getElementById("result").innerHTML = html;
     } else {
-      resultDiv.innerHTML = `<p>کاربر با شناسه <strong>${id}</strong> پیدا نشد.</p>`;
+      document.getElementById("result").innerHTML = `<p>کاربر با شناسه <b>${decodedText}</b> یافت نشد.</p>`;
     }
   }
 
-  let html5QrcodeScanner;
-
-  function onScanSuccess(decodedText, decodedResult) {
-    console.log("کد اسکن شده:", decodedText);
-    displayUserInfo(decodedText);
-    // اگر بخوای می‌تونی اینجا اسکنر رو نگه داری تا چند تا کد اسکن کنی
-    // ولی الان برای نمونه دوربین رو متوقف می‌کنم
-    html5QrcodeScanner.clear();
-  }
-
   function onScanFailure(error) {
-    // خطاهای اسکن رو می‌تونی اینجا ثبت کنی یا نادیده بگیری
+    // خطاهای اسکن رو می‌تونید اینجا ثبت کنید یا نادیده بگیرید
   }
 
   function startScanner() {
     html5QrcodeScanner = new Html5Qrcode("reader");
 
-    html5QrcodeScanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      onScanSuccess,
-      onScanFailure
-    ).catch(err => {
-      document.getElementById("result").innerText = "دوربین قابل دسترسی نیست یا اجازه داده نشده.";
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length) {
+        const cameraId = cameras[0].id;
+        html5QrcodeScanner.start(
+          cameraId,
+          { fps: 10, qrbox: 250 },
+          onScanSuccess,
+          onScanFailure
+        );
+      } else {
+        document.getElementById("result").innerText = "دوربینی یافت نشد.";
+      }
+    }).catch(err => {
+      document.getElementById("result").innerText = "دسترسی به دوربین امکان‌پذیر نیست.";
     });
   }
+};
 </script>
 
 </body>
