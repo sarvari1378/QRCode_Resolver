@@ -5,31 +5,132 @@
 <title>اسکن کیوآر و نمایش اطلاعات بر اساس ترتیب JSON</title>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    background-color: #f4f7fc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+    padding: 20px;
+    color: #333;
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
   video {
-    width: 320px;
-    height: 240px;
-    border: 2px solid #333;
-    border-radius: 8px;
-    display: block;
-    margin: 20px auto;
+    width: 100%;
+    max-width: 400px;
+    border: 3px solid #3d8bff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
   }
+
+  canvas {
+    display: none;
+  }
+
   #output {
-    max-width: 320px;
-    margin: 10px auto;
-    padding: 10px;
-    border: 1px solid #666;
-    border-radius: 6px;
-    font-family: monospace;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    background: #f0f0f0;
-    min-height: 60px;
-    text-align: right;
-    direction: rtl;
+    width: 100%;
+    max-width: 400px;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-top: 20px;
+    text-align: center;
+    font-size: 1.2rem;
+    color: #444;
+    transition: all 0.3s ease;
+    max-height: 400px;
+    overflow-y: auto;
   }
-  ul {
-    padding-right: 15px;
-    text-align: right;
+
+  #output h3 {
+    font-size: 1.5rem;
+    color: #3d8bff;
+    margin-bottom: 10px;
+  }
+
+  #output ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  #output ul li {
+    padding: 8px;
+    margin: 8px 0;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: 0.3s;
+  }
+
+  #output ul li b {
+    color: #3d8bff;
+  }
+
+  #output ul li:hover {
+    background-color: #3d8bff;
+    color: #fff;
+    border-color: #3d8bff;
+  }
+
+  #output.loading {
+    text-align: center;
+    color: #3d8bff;
+  }
+
+  .error {
+    color: #e74c3c;
+    font-size: 1.1rem;
+    margin-top: 20px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    background-color: #3d8bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+  }
+
+  .btn:hover {
+    background-color: #287bff;
+  }
+
+  .btn:active {
+    transform: scale(0.98);
+  }
+
+  @media (max-width: 480px) {
+    video {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    #output {
+      width: 100%;
+      max-width: 100%;
+    }
   }
 </style>
 </head>
@@ -38,7 +139,7 @@
 <h2>دوربین فعال است، کیوآر کد را مقابل دوربین قرار دهید</h2>
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas" hidden></canvas>
-<div id="output">هیچ کیوآر کدی هنوز اسکن نشده</div>
+<div id="output" class="loading">در حال بارگذاری...</div>
 
 <script>
   const video = document.getElementById('video');
@@ -58,6 +159,7 @@
       users = await res.json();
       // به هر آیتم یک id اختصاص می‌دهیم بر اساس اندیس + 1
       users = users.map((item, index) => ({ id: index + 1, ...item }));
+      output.classList.remove("loading");
     } catch (e) {
       output.textContent = "خطا در بارگذاری داده‌ها: " + e.message;
     }
