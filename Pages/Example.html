@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>اسکن بارکد (نسخه نهایی و پایدار)</title>
+<title>اسکن بارکد (ورود دستی و اسکن)</title>
 
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
 <style>
-  /* استایل‌ها بدون تغییر */
+  /* استایل‌های اصلی بدون تغییر */
   :root { --primary-color: #3d8bff; --success-color: #28a745; --error-color: #e74c3c; --light-bg: #f4f7fc; --dark-text: #333; --border-radius: 12px; --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Vazirmatn', sans-serif; }
   body { background-color: var(--light-bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; flex-direction: column; padding: 20px; color: var(--dark-text); }
@@ -23,11 +23,50 @@
   .user-info ul { list-style: none; padding: 0; width: 100%; }
   .user-info li { padding: 10px; margin: 5px 0; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
   .user-info li b { color: var(--primary-color); margin-left: 8px; }
+
+  /* === استایل‌های جدید برای ورودی دستی === */
+  .manual-input-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 500px;
+  }
+  #manual-barcode-input {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+    text-align: left; /* برای اینکه اعداد انگلیسی درست نمایش داده شوند */
+    direction: ltr;
+  }
+  #manual-submit-btn {
+    padding: 12px 20px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background-color 0.2s;
+  }
+  #manual-submit-btn:hover {
+    background-color: #3377dd;
+  }
 </style>
 </head>
 <body>
 
-<h2>بارکد را مقابل دوربین قرار دهید</h2>
+<h2>بارکد را اسکن کنید</h2>
+
+<!-- === بخش جدید برای ورودی دستی === -->
+<div class="manual-input-container">
+    <input type="text" id="manual-barcode-input" placeholder="یا کد را دستی وارد کنید...">
+    <button id="manual-submit-btn">بررسی</button>
+</div>
+
 <div id="scanner-container"></div>
 <div id="result" class="result-card">
     <div class="message">در حال آماده‌سازی اسکنر...</div>
@@ -36,6 +75,9 @@
 <script>
     document.addEventListener("DOMContentLoaded", async () => {
         const resultCard = document.getElementById('result');
+        const manualInput = document.getElementById('manual-barcode-input');
+        const manualSubmitBtn = document.getElementById('manual-submit-btn');
+        
         const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json";
         
         let users = [];
@@ -46,7 +88,47 @@
         function displayMessage(text, type = 'info') { /* ... */ }
         function displayUserInfo(user) { /* ... */ }
         async function loadUsers() { /* ... */ }
+
+        // *** تابع جدید برای پردازش کد (هم اسکن شده و هم دستی) ***
+        function processBarcode(barcodeText) {
+            console.log("در حال پردازش کد:", barcodeText);
+            
+            let id = NaN;
+            // اگر کد شامل "_" بود، بخش آخر را جدا می‌کنیم
+            if (barcodeText && barcodeText.includes('_')) {
+                const parts = barcodeText.split('_');
+                id = parseInt(parts[parts.length - 1], 10);
+            } 
+            // در غیر این صورت، تلاش می‌کنیم کل متن را به عنوان عدد در نظر بگیریم
+            else if (barcodeText && !isNaN(parseInt(barcodeText, 10))) {
+                id = parseInt(barcodeText, 10);
+            }
+
+            if (!isNaN(id)) {
+                const user = users.find(u => u.id === id);
+                displayUserInfo(user);
+            } else {
+                displayMessage(`فرمت کد (${barcodeText}) معتبر نیست.`, 'error');
+            }
+        }
+
+        // --- رویدادهای مربوط به ورودی دستی ---
+        manualSubmitBtn.addEventListener('click', () => {
+            const code = manualInput.value.trim();
+            if (code) {
+                processBarcode(code);
+                manualInput.value = ''; // خالی کردن فیلد پس از بررسی
+                manualInput.focus(); // تمرکز مجدد روی فیلد برای ورود بعدی
+            }
+        });
+
+        manualInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                manualSubmitBtn.click(); // با فشردن Enter، دکمه را کلیک می‌کنیم
+            }
+        });
         
+        // --- منطق راه‌اندازی اسکنر ---
         try {
             await loadUsers();
 
@@ -57,35 +139,21 @@
                 if (now - lastScanTime < scanCooldown) return;
                 lastScanTime = now;
                 
-                // لاگ برای اطمینان از موفقیت
-                console.log("اسکن موفق!", decodedText, "فرمت:", decodedResult.result.format.formatName);
-
-                let id = NaN;
-                if (decodedText && decodedText.includes('_')) {
-                    const parts = decodedText.split('_');
-                    id = parseInt(parts[parts.length - 1], 10);
-                }
-
-                if (!isNaN(id)) {
-                    const user = users.find(u => u.id === id);
-                    displayUserInfo(user);
-                } else {
-                    displayMessage(`فرمت بارکد (${decodedText}) معتبر نیست.`, 'error');
-                }
+                // از تابع مشترک برای پردازش استفاده می‌کنیم
+                processBarcode(decodedText);
             };
             
-            // *** تغییر کلیدی اینجاست ***
             const config = { 
                 fps: 10, 
                 qrbox: { width: 300, height: 150 },
-                // به کتابخانه می‌گوییم دنبال همه فرمت‌های رایج بگردد
                 formatsToSupport: [
                     Html5QrcodeSupportedFormats.CODE_128,
                     Html5QrcodeSupportedFormats.CODE_39,
                     Html5QrcodeSupportedFormats.EAN_13,
                     Html5QrcodeSupportedFormats.EAN_8,
                     Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.QR_CODE // اضافه کردن کیوآرکد برای اطمینان
                 ]
             };
 
@@ -93,20 +161,22 @@
                 { facingMode: "environment" },
                 config,
                 onScanSuccess,
-                (errorMessage) => { 
-                    // در کنسول لاگ می‌اندازیم تا ببینیم آیا خطای خاصی وجود دارد
-                    // console.log("اسکن ناموفق:", errorMessage);
-                }
+                (errorMessage) => { /* console.log("اسکن ناموفق:", errorMessage); */ }
             );
 
-            displayMessage("دوربین آماده است. لطفاً بارکد را اسکن کنید.");
+            displayMessage("دوربین آماده است. لطفاً بارکد را اسکن کنید یا کد را دستی وارد نمایید.");
 
         } catch (err) {
             console.error("خطای اصلی:", err);
-            displayMessage(`خطا در راه‌اندازی دوربین: ${err.message}`, 'error');
+            const errorMessage = err.message || err;
+            if (errorMessage.toLowerCase().includes('notfounderror') || errorMessage.toLowerCase().includes('permission denied')) {
+                 displayMessage('برای اسکن، لطفاً دسترسی به دوربین را مجاز کنید. می‌توانید از ورود دستی استفاده کنید.', 'error');
+            } else {
+                 displayMessage(`خطا در راه‌اندازی دوربین: ${errorMessage}`, 'error');
+            }
         }
 
-        // --- کد کامل توابع کمکی ---
+        // --- کد کامل توابع کمکی (بدون تغییر) ---
         function displayMessage(text, type = 'info') {
             resultCard.innerHTML = `<div class="message">${text}</div>`;
             resultCard.classList.remove('found', 'not-found');
