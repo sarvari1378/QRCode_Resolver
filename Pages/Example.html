@@ -280,6 +280,7 @@
           requestAnimationFrame(scanFrame);
         };
       } catch (e) {
+        console.error("Camera Error:", e);
         displayMessage(`خطا در دسترسی به دوربین: ${e.message}`, 'error');
       }
     }
