@@ -3,34 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>اسکن بارکد (ورود دستی و اسکن)</title>
+<title>جستجوی کاربر با آیدی</title>
 
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
 <style>
-  /* استایل‌های اصلی بدون تغییر */
   :root { --primary-color: #3d8bff; --success-color: #28a745; --error-color: #e74c3c; --light-bg: #f4f7fc; --dark-text: #333; --border-radius: 12px; --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Vazirmatn', sans-serif; }
   body { background-color: var(--light-bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; flex-direction: column; padding: 20px; color: var(--dark-text); }
   h2 { font-size: 1.6rem; color: var(--dark-text); margin-bottom: 20px; text-align: center; }
-  #scanner-container { width: 100%; max-width: 500px; border: 3px solid var(--primary-color); border-radius: var(--border-radius); box-shadow: var(--box-shadow); margin-bottom: 25px; overflow: hidden; }
-  .result-card { width: 100%; max-width: 500px; background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); min-height: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.3s ease; text-align: right; }
-  .result-card .message { font-size: 1.2rem; color: #444; }
-  .result-card.found { border-top: 5px solid var(--primary-color); }
-  .result-card.not-found { border-top: 5px solid var(--error-color); background-color: #fff3f3; }
-  .user-info h3 { font-size: 1.8rem; color: var(--primary-color); margin-bottom: 15px; text-align: center; }
-  .user-info ul { list-style: none; padding: 0; width: 100%; }
-  .user-info li { padding: 10px; margin: 5px 0; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
-  .user-info li b { color: var(--primary-color); margin-left: 8px; }
 
-  /* === استایل‌های جدید برای ورودی دستی === */
   .manual-input-container {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
     width: 100%;
-    max-width: 500px;
+    max-width: 400px;
   }
   #manual-barcode-input {
     flex-grow: 1;
@@ -38,7 +26,7 @@
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 1rem;
-    text-align: left; /* برای اینکه اعداد انگلیسی درست نمایش داده شوند */
+    text-align: left;
     direction: ltr;
   }
   #manual-submit-btn {
@@ -52,156 +40,101 @@
     font-weight: bold;
     transition: background-color 0.2s;
   }
-  #manual-submit-btn:hover {
-    background-color: #3377dd;
+  #manual-submit-btn:hover { background-color: #3377dd; }
+
+  .result-card { width: 100%; max-width: 500px; background-color: #fff; border-radius: 8px; padding: 20px; box-shadow: var(--box-shadow); min-height: 150px; display: flex; flex-direction: column; transition: all 0.3s ease; text-align: right; }
+  .result-card .message { font-size: 1.2rem; color: #444; }
+  .result-card.found { border-top: 5px solid var(--primary-color); }
+  .result-card.not-found { border-top: 5px solid var(--error-color); background-color: #fff3f3; }
+  
+  .user-info h3 { font-size: 1.6rem; color: var(--primary-color); margin-bottom: 15px; text-align: center; }
+  .user-info ul { list-style: none; padding: 0; width: 100%; }
+  .user-info li { padding: 8px; margin: 5px 0; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+  .user-info li b { color: var(--primary-color); margin-left: 8px; }
+
+  /* ناهار بالا */
+  .lunch-status {
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    text-align: center;
   }
+  .lunch-ok { background-color: var(--success-color); color: #fff; }
+  .lunch-no { background-color: var(--error-color); color: #fff; }
 </style>
 </head>
 <body>
 
-<h2>بارکد را اسکن کنید</h2>
+<h2>آیدی کاربر را وارد کنید</h2>
 
-<!-- === بخش جدید برای ورودی دستی === -->
 <div class="manual-input-container">
-    <input type="text" id="manual-barcode-input" placeholder="یا کد را دستی وارد کنید...">
+    <input type="number" id="manual-barcode-input" placeholder="مثلاً 23">
     <button id="manual-submit-btn">بررسی</button>
 </div>
 
-<div id="scanner-container"></div>
 <div id="result" class="result-card">
-    <div class="message">در حال آماده‌سازی اسکنر...</div>
+    <div class="message">لطفاً آیدی را وارد کنید.</div>
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", async () => {
+    document.addEventListener("DOMContentLoaded", () => {
         const resultCard = document.getElementById('result');
         const manualInput = document.getElementById('manual-barcode-input');
         const manualSubmitBtn = document.getElementById('manual-submit-btn');
-        
-        const jsonUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data/Users.json";
-        
-        let users = [];
-        let lastScanTime = 0;
-        const scanCooldown = 3000;
 
-        // --- توابع کمکی (بدون تغییر) ---
-        function displayMessage(text, type = 'info') { /* ... */ }
-        function displayUserInfo(user) { /* ... */ }
-        async function loadUsers() { /* ... */ }
+        const baseUrl = "https://raw.githubusercontent.com/sarvari1378/QRCode_Resolver/main/Data";
 
-        // *** تابع جدید برای پردازش کد (هم اسکن شده و هم دستی) ***
-        function processBarcode(barcodeText) {
-            console.log("در حال پردازش کد:", barcodeText);
-            
-            let id = NaN;
-            // اگر کد شامل "_" بود، بخش آخر را جدا می‌کنیم
-            if (barcodeText && barcodeText.includes('_')) {
-                const parts = barcodeText.split('_');
-                id = parseInt(parts[parts.length - 1], 10);
-            } 
-            // در غیر این صورت، تلاش می‌کنیم کل متن را به عنوان عدد در نظر بگیریم
-            else if (barcodeText && !isNaN(parseInt(barcodeText, 10))) {
-                id = parseInt(barcodeText, 10);
-            }
-
-            if (!isNaN(id)) {
-                const user = users.find(u => u.id === id);
-                displayUserInfo(user);
-            } else {
-                displayMessage(`فرمت کد (${barcodeText}) معتبر نیست.`, 'error');
-            }
-        }
-
-        // --- رویدادهای مربوط به ورودی دستی ---
-        manualSubmitBtn.addEventListener('click', () => {
-            const code = manualInput.value.trim();
-            if (code) {
-                processBarcode(code);
-                manualInput.value = ''; // خالی کردن فیلد پس از بررسی
-                manualInput.focus(); // تمرکز مجدد روی فیلد برای ورود بعدی
-            }
-        });
-
-        manualInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                manualSubmitBtn.click(); // با فشردن Enter، دکمه را کلیک می‌کنیم
-            }
-        });
-        
-        // --- منطق راه‌اندازی اسکنر ---
-        try {
-            await loadUsers();
-
-            const html5QrCode = new Html5Qrcode("scanner-container");
-
-            const onScanSuccess = (decodedText, decodedResult) => {
-                const now = Date.now();
-                if (now - lastScanTime < scanCooldown) return;
-                lastScanTime = now;
-                
-                // از تابع مشترک برای پردازش استفاده می‌کنیم
-                processBarcode(decodedText);
-            };
-            
-            const config = { 
-                fps: 10, 
-                qrbox: { width: 300, height: 150 },
-                formatsToSupport: [
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.QR_CODE // اضافه کردن کیوآرکد برای اطمینان
-                ]
-            };
-
-            await html5QrCode.start(
-                { facingMode: "environment" },
-                config,
-                onScanSuccess,
-                (errorMessage) => { /* console.log("اسکن ناموفق:", errorMessage); */ }
-            );
-
-            displayMessage("دوربین آماده است. لطفاً بارکد را اسکن کنید یا کد را دستی وارد نمایید.");
-
-        } catch (err) {
-            console.error("خطای اصلی:", err);
-            const errorMessage = err.message || err;
-            if (errorMessage.toLowerCase().includes('notfounderror') || errorMessage.toLowerCase().includes('permission denied')) {
-                 displayMessage('برای اسکن، لطفاً دسترسی به دوربین را مجاز کنید. می‌توانید از ورود دستی استفاده کنید.', 'error');
-            } else {
-                 displayMessage(`خطا در راه‌اندازی دوربین: ${errorMessage}`, 'error');
-            }
-        }
-
-        // --- کد کامل توابع کمکی (بدون تغییر) ---
         function displayMessage(text, type = 'info') {
             resultCard.innerHTML = `<div class="message">${text}</div>`;
             resultCard.classList.remove('found', 'not-found');
             if (type === 'error') resultCard.classList.add('not-found');
         }
+
         function displayUserInfo(user) {
-            if (!user) { displayMessage("کاربر با این شناسه یافت نشد.", "error"); return; }
-            resultCard.classList.remove('not-found'); resultCard.classList.add('found');
-            let html = `<div class="user-info"><h3>${user.Name}</h3><ul>`;
+            if (!user) { displayMessage("کاربر یافت نشد.", "error"); return; }
+            resultCard.classList.remove('not-found'); 
+            resultCard.classList.add('found');
+
+            // بررسی وضعیت ناهار
+            let lunchHtml = "";
+            if (user["ناهار"]) {
+                lunchHtml = `<div class="lunch-status lunch-ok">🍽️ ناهار: ${user["ناهار"]}</div>`;
+            } else {
+                lunchHtml = `<div class="lunch-status lunch-no">❌ ناهار ثبت نشده</div>`;
+            }
+
+            let html = `<div class="user-info">${lunchHtml}<h3>${user.Name || "بدون نام"}</h3><ul>`;
             for (const [key, value] of Object.entries(user)) {
-                if (['id', 'Name'].includes(key)) continue;
+                if (['id', 'Name', 'ناهار'].includes(key)) continue; // ناهار رو دیگه تو لیست نشون ندیم
                 html += `<li><b>${key}:</b> ${value || "ثبت نشده"}</li>`;
             }
             html += "</ul></div>";
             resultCard.innerHTML = html;
         }
-        async function loadUsers() {
+
+        async function fetchUserById(id) {
             try {
-                const res = await fetch(jsonUrl); if (!res.ok) throw new Error("خطا در بارگذاری JSON");
+                const res = await fetch(`${baseUrl}/${id}.json`);
+                if (!res.ok) throw new Error("کاربر موجود نیست.");
                 const data = await res.json();
-                users = data.map((item, index) => ({ id: index + 1, ...item }));
+                displayUserInfo(data);
             } catch (e) {
-                displayMessage(`خطا در بارگذاری داده‌ها: ${e.message}`, 'error'); throw e;
+                displayMessage(e.message, "error");
             }
         }
+
+        function handleSubmit() {
+            const id = manualInput.value.trim();
+            if (!id) { displayMessage("لطفاً یک عدد وارد کنید.", "error"); return; }
+            fetchUserById(id);
+            manualInput.value = '';
+            manualInput.focus();
+        }
+
+        manualSubmitBtn.addEventListener('click', handleSubmit);
+        manualInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSubmit(); });
     });
 </script>
 
